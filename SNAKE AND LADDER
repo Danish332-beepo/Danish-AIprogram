@@ -91,7 +91,7 @@ def draw_board():
 
     screen.fill(BG)
 
-    title=big.render("SNAKE & LADDER DELUXE AI PRO",True,WHITE)
+    title=big.render("SNAK AND LADDER",True,WHITE)
     screen.blit(title,(20,5))
 
     for r in range(10):
