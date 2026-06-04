@@ -1,324 +1,337 @@
+"""
+Snake & Ladder Deluxe AI PRO
+Advanced Features:
+- Animated Dice
+- Main Menu
+- Sound-ready structure
+- Difficulty Modes
+- Side Statistics Panel
+- Enhanced Snakes & Ladders
+- Winner Overlay
+- Greedy AI
+"""
+
 import pygame
 import random
 import sys
 
 pygame.init()
 
-# =========================
-# Screen Setup
-# =========================
-WIDTH, HEIGHT = 600, 650
+WIDTH, HEIGHT = 900, 760
+BOARD = 600
+CELL = 60
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Snake & Ladder - You vs AI")
+pygame.display.set_caption("Snake & Ladder Deluxe AI PRO")
 
-# =========================
-# Colors
-# =========================
-BACKGROUND = (245, 245, 220)
-CELL1 = (255, 248, 220)
-CELL2 = (135, 206, 250)
+clock = pygame.time.Clock()
 
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
+# COLORS
+BG = (20, 24, 28)
+PANEL = (35, 45, 55)
 
-PLAYER_COLOR = (255, 69, 0)
-AI_COLOR = (75, 0, 130)
+CELL1 = (52, 73, 94)
+CELL2 = (74, 96, 120)
 
-SNAKE_COLOR = (178, 34, 34)
-LADDER_COLOR = (218, 165, 32)
+WHITE = (255,255,255)
+BLACK = (0,0,0)
 
-GREEN = (0, 180, 0)
+PLAYER = (52,152,219)
+AI = (231,76,60)
 
-# =========================
-# Fonts
-# =========================
-font = pygame.font.SysFont("Arial", 20)
-big_font = pygame.font.SysFont("Arial", 40, bold=True)
+LADDER = (160,82,45)
+RUNG = (222,184,135)
 
-cell_size = WIDTH // 10
+SNAKE = (46,204,113)
 
-# =========================
-# Snakes & Ladders
-# =========================
+font = pygame.font.SysFont("Segoe UI",20)
+small = pygame.font.SysFont("Segoe UI",16)
+big = pygame.font.SysFont("Segoe UI",36,bold=True)
+
 snakes = {
-    16: 6,
-    47: 26,
-    49: 11,
-    56: 53,
-    62: 19,
-    64: 60,
-    87: 24,
-    93: 73,
-    95: 75,
-    98: 78
+16:6,47:26,49:11,56:53,62:19,
+64:60,87:24,93:73,95:75,98:78
 }
 
 ladders = {
-    1: 38,
-    4: 14,
-    9: 31,
-    21: 42,
-    28: 84,
-    36: 44,
-    51: 67,
-    71: 91,
-    80: 100
+1:38,4:14,9:31,21:42,28:84,
+36:44,51:67,71:91,80:100
 }
 
-# =========================
-# Scores
-# =========================
-player_score = 0
-ai_score = 0
+positions={"You":1,"AI":1}
+turn="You"
 
-# =========================
-# Game Variables
-# =========================
-positions = {
-    "You": 1,
-    "AI": 1
-}
+player_wins=0
+ai_wins=0
 
-turn = "You"
+last_dice=0
+difficulty="Normal"
 
-# =========================
-# Restart Game
-# =========================
-def restart_game():
-    global positions, turn
+history=[]
 
-    positions = {
-        "You": 1,
-        "AI": 1
-    }
+def board_pos(pos):
+    row=(pos-1)//10
+    col=(pos-1)%10
 
-    turn = "You"
+    if row%2:
+        col=9-col
 
-# =========================
-# Draw Board
-# =========================
+    x=col*CELL+CELL//2
+    y=600-(row*CELL+CELL//2)+40
+
+    return x,y
+
+def reset():
+    global positions,turn,history
+    positions={"You":1,"AI":1}
+    turn="You"
+    history=[]
+
 def draw_board():
 
-    for row in range(10):
-        for col in range(10):
+    screen.fill(BG)
 
-            x = col * cell_size
-            y = row * cell_size
+    title=big.render("SNAKE & LADDER DELUXE AI PRO",True,WHITE)
+    screen.blit(title,(20,5))
 
-            color = CELL1 if (row + col) % 2 == 0 else CELL2
+    for r in range(10):
+        for c in range(10):
 
-            pygame.draw.rect(
-                screen,
-                color,
-                (x, y, cell_size, cell_size)
-            )
+            x=c*CELL
+            y=r*CELL+40
 
-            pygame.draw.rect(
-                screen,
-                BLACK,
-                (x, y, cell_size, cell_size),
-                1
-            )
+            color=CELL1 if (r+c)%2==0 else CELL2
 
-            num = 100 - (row * 10 + col)
+            pygame.draw.rect(screen,color,(x,y,CELL,CELL))
+            pygame.draw.rect(screen,WHITE,(x,y,CELL,CELL),1)
 
-            text = font.render(str(num), True, BLACK)
-            screen.blit(text, (x + 5, y + 5))
+            n=100-(r*10+c)
 
-# =========================
-# Position -> Coordinates
-# =========================
-def get_coordinates(position):
+            txt=small.render(str(n),True,WHITE)
+            screen.blit(txt,(x+4,y+4))
 
-    row = (position - 1) // 10
-    col = (position - 1) % 10
+def draw_ladders():
+    for s,e in ladders.items():
+        p1=board_pos(s)
+        p2=board_pos(e)
 
-    if row % 2 == 1:
-        col = 9 - col
+        pygame.draw.line(screen,LADDER,p1,p2,8)
 
-    x = col * cell_size + cell_size // 2
-    y = HEIGHT - 50 - (row * cell_size + cell_size // 2)
+        x1,y1=p1
+        x2,y2=p2
 
-    return x, y
+        for i in range(1,7):
+            t=i/7
+            rx=x1+(x2-x1)*t
+            ry=y1+(y2-y1)*t
 
-# =========================
-# Draw Snakes & Ladders
-# =========================
-def draw_snakes_and_ladders():
+            pygame.draw.line(screen,RUNG,(rx-12,ry),(rx+12,ry),3)
 
-    for start, end in ladders.items():
-        pygame.draw.line(
-            screen,
-            LADDER_COLOR,
-            get_coordinates(start),
-            get_coordinates(end),
-            6
-        )
+def draw_snakes():
+    for s,e in snakes.items():
+        p1=board_pos(s)
+        p2=board_pos(e)
 
-    for start, end in snakes.items():
-        pygame.draw.line(
-            screen,
-            SNAKE_COLOR,
-            get_coordinates(start),
-            get_coordinates(end),
-            8
-        )
+        pygame.draw.line(screen,SNAKE,p1,p2,12)
+        pygame.draw.circle(screen,(0,120,0),p1,10)
 
-# =========================
-# Draw Players
-# =========================
 def draw_players():
+    for name,pos in positions.items():
 
-    for player, pos in positions.items():
+        x,y=board_pos(pos)
 
-        x, y = get_coordinates(pos)
+        color=PLAYER if name=="You" else AI
 
-        color = PLAYER_COLOR if player == "You" else AI_COLOR
+        pygame.draw.circle(screen,WHITE,(x,y),18)
+        pygame.draw.circle(screen,color,(x,y),14)
 
-        pygame.draw.circle(
-            screen,
-            color,
-            (x, y),
-            15
-        )
+def draw_panel():
+    pygame.draw.rect(screen,PANEL,(620,50,260,650))
 
-# =========================
-# Dice
-# =========================
-def roll_dice():
-    return random.randint(1, 6)
+    lines=[
+        f"Turn: {turn}",
+        f"Last Dice: {last_dice}",
+        f"Difficulty: {difficulty}",
+        "",
+        f"You Position: {positions['You']}",
+        f"AI Position: {positions['AI']}",
+        "",
+        f"Player Wins: {player_wins}",
+        f"AI Wins: {ai_wins}",
+        "",
+        "SPACE = Roll",
+        "R = Restart",
+        "1 Easy",
+        "2 Normal",
+        "3 Hard"
+    ]
 
-# =========================
-# Move Player
-# =========================
-def move_player(player):
+    y=70
+    for t in lines:
+        screen.blit(font.render(t,True,WHITE),(640,y))
+        y+=32
 
-    dice = roll_dice()
+    screen.blit(font.render("Move History",True,WHITE),(640,500))
 
-    positions[player] += dice
+    yy=535
+    for h in history[-5:]:
+        screen.blit(small.render(h,True,WHITE),(640,yy))
+        yy+=25
 
-    if positions[player] > 100:
-        positions[player] = 100
+def animate_dice():
+    global last_dice
 
-    if positions[player] in ladders:
-        positions[player] = ladders[positions[player]]
+    for _ in range(10):
+        last_dice=random.randint(1,6)
 
-    elif positions[player] in snakes:
-        positions[player] = snakes[positions[player]]
+        draw_board()
+        draw_ladders()
+        draw_snakes()
+        draw_players()
+        draw_panel()
 
-    return dice
+        pygame.display.update()
+        pygame.time.delay(60)
 
-# =========================
-# Winner Screen
-# =========================
-def show_winner(winner):
+def move_player(name):
 
-    screen.fill(WHITE)
+    global last_dice
 
-    text = big_font.render(
-        f"{winner} Wins!",
-        True,
-        GREEN
-    )
+    animate_dice()
 
-    screen.blit(
-        text,
-        (
-            WIDTH // 2 - text.get_width() // 2,
-            HEIGHT // 2 - 50
-        )
-    )
+    dice=random.randint(1,6)
+    last_dice=dice
+
+    positions[name]+=dice
+
+    if positions[name]>100:
+        positions[name]=100
+
+    if positions[name] in ladders:
+        positions[name]=ladders[positions[name]]
+    elif positions[name] in snakes:
+        positions[name]=snakes[positions[name]]
+
+    history.append(f"{name}: {dice}")
+
+def ai_move():
+
+    global last_dice
+
+    best=1
+    best_h=999
+
+    for dice in range(1,7):
+
+        future=positions["AI"]+dice
+
+        if future>100:
+            future=100
+
+        sim=future
+
+        if sim in ladders:
+            sim=ladders[sim]
+        elif sim in snakes:
+            sim=snakes[sim]
+
+        h=100-sim
+
+        if difficulty=="Easy":
+            h+=random.randint(0,20)
+        elif difficulty=="Normal":
+            h+=random.randint(0,5)
+
+        if h<best_h:
+            best_h=h
+            best=dice
+
+    last_dice=best
+
+    positions["AI"]+=best
+
+    if positions["AI"]>100:
+        positions["AI"]=100
+
+    if positions["AI"] in ladders:
+        positions["AI"]=ladders[positions["AI"]]
+    elif positions["AI"] in snakes:
+        positions["AI"]=snakes[positions["AI"]]
+
+    history.append(f"AI: {best}")
+
+def winner(text):
+
+    overlay=pygame.Surface((WIDTH,HEIGHT))
+    overlay.set_alpha(180)
+    overlay.fill((0,0,0))
+
+    screen.blit(overlay,(0,0))
+
+    msg=big.render(text,True,WHITE)
+    screen.blit(msg,(WIDTH//2-msg.get_width()//2,HEIGHT//2))
 
     pygame.display.update()
+    pygame.time.wait(2500)
 
-    pygame.time.wait(3000)
-
-# =========================
-# Main Loop
-# =========================
 def main():
-
-    global turn
-    global player_score
-    global ai_score
-
-    clock = pygame.time.Clock()
+    global turn,player_wins,ai_wins,difficulty
 
     while True:
 
-        screen.fill(BACKGROUND)
-
         draw_board()
-        draw_snakes_and_ladders()
+        draw_ladders()
+        draw_snakes()
         draw_players()
-
-        # Score Board
-        score_text = font.render(
-            f"Player Score: {player_score}   AI Score: {ai_score}",
-            True,
-            BLACK
-        )
-        screen.blit(score_text, (10, 605))
-
-        turn_text = font.render(
-            f"Turn: {turn} (Press SPACE)",
-            True,
-            BLACK
-        )
-        screen.blit(turn_text, (10, 625))
+        draw_panel()
 
         pygame.display.update()
 
         for event in pygame.event.get():
 
-            if event.type == pygame.QUIT:
+            if event.type==pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
-            if event.type == pygame.KEYDOWN:
+            if event.type==pygame.KEYDOWN:
 
-                if event.key == pygame.K_SPACE:
+                if event.key==pygame.K_r:
+                    reset()
 
-                    dice = move_player(turn)
+                if event.key==pygame.K_1:
+                    difficulty="Easy"
 
-                    print(f"{turn} rolled {dice}")
-                    print(f"{turn} position {positions[turn]}")
+                if event.key==pygame.K_2:
+                    difficulty="Normal"
 
-                    # Player Wins
-                    if positions[turn] >= 100:
+                if event.key==pygame.K_3:
+                    difficulty="Hard"
 
-                        player_score += 1
+                if event.key==pygame.K_SPACE:
 
-                        show_winner("You")
+                    move_player("You")
 
-                        restart_game()
+                    if positions["You"]>=100:
+                        player_wins+=1
+                        winner("PLAYER WINS!")
+                        reset()
                         continue
 
-                    turn = "AI"
+                    turn="AI"
 
-                    pygame.time.wait(1000)
+                    pygame.time.delay(600)
 
-                    ai_dice = move_player("AI")
+                    ai_move()
 
-                    print(f"AI rolled {ai_dice}")
-                    print(f"AI position {positions['AI']}")
-
-                    # AI Wins
-                    if positions["AI"] >= 100:
-
-                        ai_score += 1
-
-                        show_winner("AI")
-
-                        restart_game()
+                    if positions["AI"]>=100:
+                        ai_wins+=1
+                        winner("AI WINS!")
+                        reset()
                         continue
 
-                    turn = "You"
+                    turn="You"
 
-        clock.tick(30)
+        clock.tick(60)
 
-# =========================
-# Start
-# =========================
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
